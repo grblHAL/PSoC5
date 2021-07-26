@@ -23,26 +23,21 @@
 
 #include "project.h"
 #include "serial.h"
-#include "grbl/stream.h"
 #include "grbl/hal.h"
+#include "grbl/protocol.h"
 
 static void uart_rx_interrupt_handler (void);
 
 static stream_rx_buffer_t rxbuffer = {0};
+static enqueue_realtime_command_ptr enqueue_realtime_command = protocol_enqueue_realtime_command;
 
-void serialInit (void)
-{
-    UART_Start();
-    UART_RX_Interrupt_StartEx(uart_rx_interrupt_handler);
-}
-
-int16_t serialGetC (void)
+static int16_t serialGetC (void)
 {
     int16_t data;
     uint32_t bptr = rxbuffer.tail;
 
-    if(bptr == rxbuffer.head)        // If buffer empty
-        return SERIAL_NO_DATA; // return no data available
+    if(bptr == rxbuffer.head)   // If buffer empty
+        return SERIAL_NO_DATA;  // return no data available
 
 //    UARTIntDisable(UARTCH, UART_INT_RX|UART_INT_RT);
     data = rxbuffer.data[bptr++];               	// Get next character, increment tmp pointer
@@ -56,31 +51,37 @@ int16_t serialGetC (void)
     return data;
 }
 
-bool serialSuspendInput (bool suspend)
+static bool serialPutC (const char c)
+{
+    UART_PutChar(c);
+    return true;
+}
+
+static bool serialSuspendInput (bool suspend)
 {
     return stream_rx_suspend(&rxbuffer, suspend);
 }
 
-inline uint16_t serialRxCount(void)
+static inline uint16_t serialRxCount(void)
 {
     uint16_t head = rxbuffer.head, tail = rxbuffer.tail;
 
     return BUFCOUNT(head, tail, RX_BUFFER_SIZE);
 }
 
-uint16_t serialRxFree(void)
+static uint16_t serialRxFree(void)
 {
     return RX_BUFFER_SIZE - serialRxCount();
 }
 
-void serialRxFlush(void)
+static void serialRxFlush(void)
 {
     rxbuffer.tail = rxbuffer.head;
     UART_ClearRxBuffer(); // clear FIFO too
 //    GPIOPinWrite(RTS_PORT, RTS_PIN, rts_state = 0);
 }
 
-void serialRxCancel(void)
+static void serialRxCancel(void)
 {
     rxbuffer.data[rxbuffer.head] = CMD_RESET;
     rxbuffer.tail = rxbuffer.head;
@@ -90,7 +91,7 @@ void serialRxCancel(void)
 //    GPIOPinWrite(RTS_PORT, RTS_PIN, rts_state = 0);
 }
 
-void serialWriteS(const char *data)
+static void serialWriteS(const char *data)
 {
 
     char c, *ptr = (char *)data;
@@ -99,13 +100,7 @@ void serialWriteS(const char *data)
         serialPutC(c);
 }
 
-void serialWriteLn(const char *data)
-{
-    serialWriteS(data);
-    serialWriteS(ASCII_EOL);
-}
-
-void serialWrite(const char *data, unsigned int length)
+static void serialWrite(const char *data, uint16_t length)
 {
     char *ptr = (char *)data;
 
@@ -114,10 +109,38 @@ void serialWrite(const char *data, unsigned int length)
 
 }
 
-bool serialPutC (const char c)
+static enqueue_realtime_command_ptr serialSetRtHandler (enqueue_realtime_command_ptr handler)
 {
-    UART_PutChar(c);
-    return true;
+    enqueue_realtime_command_ptr prev = enqueue_realtime_command;
+
+    if(handler)
+        enqueue_realtime_command = handler;
+
+    return prev;
+}
+
+const io_stream_t *serialInit (void)
+{
+    static const io_stream_t stream = {
+        .type = StreamType_Serial,
+        .connected = true,
+        .read = serialGetC,
+        .write = serialWriteS,
+        .write_char = serialPutC,
+        .write_all = serialWriteS,
+        .write_n = serialWrite,
+        .get_rx_buffer_free = serialRxFree,
+        .get_rx_buffer_count = serialRxCount,
+        .reset_read_buffer = serialRxFlush,
+        .cancel_read_buffer = serialRxCancel,
+        .suspend_read = serialSuspendInput,
+        .set_enqueue_rt_handler = serialSetRtHandler
+    };
+    
+    UART_Start();
+    UART_RX_Interrupt_StartEx(uart_rx_interrupt_handler);
+
+    return &stream;
 }
 
 static void uart_rx_interrupt_handler (void)
@@ -128,7 +151,7 @@ static void uart_rx_interrupt_handler (void)
         if(data == CMD_TOOL_ACK && !rxbuffer.backup) {
 			stream_rx_backup(&rxbuffer);
             hal.stream.read = serialGetC; // restore normal input
-        } else if(!hal.stream.enqueue_realtime_command((char)data)) {
+        } else if(!enqueue_realtime_command((char)data)) {
 
             uint32_t bptr = (rxbuffer.head + 1) & (RX_BUFFER_SIZE - 1);  // Get next head pointer
 

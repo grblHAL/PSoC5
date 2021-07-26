@@ -437,11 +437,10 @@ static bool driver_setup (settings_t *settings)
 // NOTE: Grbl is not yet (configured from EEPROM data), driver_setup() will be called when done
 bool driver_init (void)
 {
-    serialInit();
     EEPROM_Start();
 
     hal.info = "PSoC 5";
-    hal.driver_version = "210626";
+    hal.driver_version = "210716";
     hal.driver_setup = driver_setup;
     hal.f_step_timer = 24000000UL;
     hal.rx_buffer_size = RX_BUFFER_SIZE;
@@ -474,14 +473,7 @@ bool driver_init (void)
 
     hal.control.get_state = systemGetState;
 
-    hal.stream.read = serialGetC;
-    hal.stream.write = serialWriteS;
-    hal.stream.write_all = serialWriteS;
-	hal.stream.write_char = serialPutC;
-    hal.stream.get_rx_buffer_free = serialRxFree;
-    hal.stream.reset_read_buffer = serialRxFlush;
-    hal.stream.cancel_read_buffer = serialRxCancel;
-    hal.stream.suspend_read = serialSuspendInput;
+    memcpy(&hal.stream, serialInit(), sizeof(io_stream_t));
 
     hal.nvs.type = NVS_EEPROM;
     hal.nvs.get_byte = (uint8_t (*)(uint32_t))&EEPROM_ReadByte;
