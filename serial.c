@@ -93,7 +93,6 @@ static void serialRxCancel(void)
 
 static void serialWriteS(const char *data)
 {
-
     char c, *ptr = (char *)data;
 
     while((c = *ptr++) != '\0')
@@ -148,10 +147,7 @@ static void uart_rx_interrupt_handler (void)
     uint8_t data;
 
     while((data = UART_GetChar())) { // UART_GetChar() returns 0 if no data
-        if(data == CMD_TOOL_ACK && !rxbuffer.backup) {
-			stream_rx_backup(&rxbuffer);
-            hal.stream.read = serialGetC; // restore normal input
-        } else if(!enqueue_realtime_command((char)data)) {
+        if(!enqueue_realtime_command((char)data)) {
 
             uint32_t bptr = (rxbuffer.head + 1) & (RX_BUFFER_SIZE - 1);  // Get next head pointer
 
