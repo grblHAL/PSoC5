@@ -5,7 +5,7 @@
 
   Part of grblHAL
 
-  Copyright (c) 2017-2021 Terje Io
+  Copyright (c) 2017-2022 Terje Io
 
   Grbl is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -24,6 +24,7 @@
 #include "project.h"
 #include "serial.h"
 #include "driver.h"
+#include "grbl/state_machine.h"
 
 #if KEYPAD_ENABLE
 #include "keypad/keypad.h"
@@ -51,8 +52,10 @@ static void driver_delay_ms (uint32_t ms, void (*callback)(void))
 {
     if((delay.ms = ms) > 0) {
         DelayTimer_Start();
-        if(!(delay.callback = callback))
-            while(delay.ms);
+        if(!(delay.callback = callback)) {
+            while(delay.ms)
+                grbl.on_execute_delay(state_get());
+        }
     } else if(callback)
         callback();
 }
@@ -440,7 +443,7 @@ bool driver_init (void)
     EEPROM_Start();
 
     hal.info = "PSoC 5";
-    hal.driver_version = "211121";
+    hal.driver_version = "220111";
     hal.driver_setup = driver_setup;
     hal.f_step_timer = 24000000UL;
     hal.rx_buffer_size = RX_BUFFER_SIZE;
