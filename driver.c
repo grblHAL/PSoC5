@@ -227,7 +227,7 @@ static control_signals_t systemGetState (void)
     
     signals.value = ControlSignals_Read();
     
-#ifndef ENABLE_SAFETY_DOOR_INPUT_PIN
+#ifndef NO_SAFETY_DOOR_SUPPORT
 	signals.safety_door_ajar = Off;
 #endif
 
@@ -443,7 +443,7 @@ bool driver_init (void)
     EEPROM_Start();
 
     hal.info = "PSoC 5";
-    hal.driver_version = "220111";
+    hal.driver_version = "220120";
     hal.driver_setup = driver_setup;
     hal.f_step_timer = 24000000UL;
     hal.rx_buffer_size = RX_BUFFER_SIZE;
@@ -492,7 +492,7 @@ bool driver_init (void)
 
   // driver capabilities, used for announcing and negotiating (with Grbl) driver functionality
 
-#ifdef ENABLE_SAFETY_DOOR_INPUT_PIN
+#ifndef NO_SAFETY_DOOR_SUPPORT
     hal.signals_cap.safety_door_ajar = On;
 #endif
     hal.driver_cap.spindle_dir = On;
