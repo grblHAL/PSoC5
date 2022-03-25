@@ -85,22 +85,10 @@ static void spindle_set_speed (uint_fast16_t pwm_value)
     }
 }
 
-#ifdef SPINDLE_PWM_DIRECT
-
 static uint_fast16_t spindleGetPWM (float rpm)
 {
     return spindle_compute_pwm_value(&spindle_pwm, rpm, false);
 }
-
-#else
-
-static void spindleUpdateRPM (float rpm)
-{
-    spindle_set_speed(spindle_compute_pwm_value(&spindle_pwm, rpm, false));
-}
-
-#endif
-
 
 // Start or stop spindle, called from spindle_run() and protocol_execute_realtime()
 static void spindleSetStateVariable (spindle_state_t state, float rpm)
@@ -402,7 +390,7 @@ static bool driver_setup (settings_t *settings)
     
     Homing_Interrupt_SetVector(limit_isr);
     
-    if((spindlePWM = hal.driver_cap.variable_spindle)) {
+    if((spindlePWM = hal.spindle.cap.variable)) {
         SpindlePWM_Start();
         SpindlePWM_WritePeriod(spindle_pwm.period);
     } else
@@ -443,7 +431,7 @@ bool driver_init (void)
     EEPROM_Start();
 
     hal.info = "PSoC 5";
-    hal.driver_version = "220120";
+    hal.driver_version = "220325";
     hal.driver_setup = driver_setup;
     hal.f_step_timer = 24000000UL;
     hal.rx_buffer_size = RX_BUFFER_SIZE;
@@ -465,14 +453,13 @@ bool driver_init (void)
     hal.probe.get_state = probeGetState;
     hal.probe.configure = probeConfigure;
 
+    hal.spindle.cap.direction = On;
+    hal.spindle.cap.variable = On;
+    hal.spindle.cap.laser = On;
     hal.spindle.set_state = spindleSetStateVariable;
     hal.spindle.get_state = spindleGetState;
-#ifdef SPINDLE_PWM_DIRECT
     hal.spindle.get_pwm = spindleGetPWM;
     hal.spindle.update_pwm = spindle_set_speed;
-#else
-    hal.spindle.update_rpm = spindleUpdateRPM;
-#endif
 
     hal.control.get_state = systemGetState;
 
@@ -495,8 +482,6 @@ bool driver_init (void)
 #ifndef NO_SAFETY_DOOR_SUPPORT
     hal.signals_cap.safety_door_ajar = On;
 #endif
-    hal.driver_cap.spindle_dir = On;
-    hal.driver_cap.variable_spindle = On;
     hal.driver_cap.mist_control = On;
     hal.driver_cap.software_debounce = On;
     hal.driver_cap.step_pulse_delay = Off;
