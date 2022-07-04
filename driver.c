@@ -76,7 +76,7 @@ static void spindleSetStateFixed (spindle_state_t state, float rpm)
 static void spindle_set_speed (uint_fast16_t pwm_value)
 {
     if (pwm_value == spindle_pwm.off_value) {
-        if(settings.spindle.flags.pwm_action == SpindleAction_DisableWithZeroSPeed)
+        if(settings.spindle.flags.enable_rpm_controlled)
             SpindleOutput_Write(SpindleOutput_Read() & 0x02);
     } else {
         if(!(SpindleOutput_Read() & 0x01))
@@ -95,12 +95,17 @@ static void spindleSetStateVariable (spindle_state_t state, float rpm)
 {
     uint32_t new_pwm = spindle_compute_pwm_value(&spindle_pwm, rpm, false);
 
-    if (!state.on || new_pwm == spindle_pwm.off_value)
-        SpindleOutput_Write(SpindleOutput_Read() & 0x02); // Keep direction!
-    else { // Alarm if direction change without stopping first?
-        SpindleOutput_Write(state.value);
-        spindle_set_speed(new_pwm);
+    if(state.on)
+        SpindleOutput_Write(state.ccw ? 0x02 : 0x00);
+        
+    if(!settings.spindle.flags.enable_rpm_controlled) {
+        if (state.on)
+            SpindleOutput_Write(state.value);
+        else
+            SpindleOutput_Write(SpindleOutput_Read() & 0x02); // Keep direction!
     }
+
+    spindle_set_speed(new_pwm);
 }
 
 // end Variable spindle
@@ -390,6 +395,8 @@ static bool driver_setup (settings_t *settings)
     
     Homing_Interrupt_SetVector(limit_isr);
     
+    hal.spindle.cap.variable &= !settings->spindle.flags.pwm_disable;
+    
     if((spindlePWM = hal.spindle.cap.variable)) {
         SpindlePWM_Start();
         SpindlePWM_WritePeriod(spindle_pwm.period);
@@ -431,7 +438,7 @@ bool driver_init (void)
     EEPROM_Start();
 
     hal.info = "PSoC 5";
-    hal.driver_version = "220325";
+    hal.driver_version = "220703";
     hal.driver_setup = driver_setup;
     hal.f_step_timer = 24000000UL;
     hal.rx_buffer_size = RX_BUFFER_SIZE;
