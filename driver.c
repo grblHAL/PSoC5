@@ -347,8 +347,6 @@ void settings_changed (settings_t *settings)
         SpindleInvert_Write(settings->spindle.invert.mask);
         CoolantInvert_Write(settings->coolant_invert.mask);
 
-        stepperEnable(settings->steppers.deenergize);
-
         // Homing (limit) inputs
         XHome_Write(settings->limits.disable_pullup.x ? 0 : 1);
         XHome_SetDriveMode(settings->limits.disable_pullup.x ? XHome_DM_RES_DWN : XHome_DM_RES_UP);
@@ -438,7 +436,7 @@ bool driver_init (void)
     EEPROM_Start();
 
     hal.info = "PSoC 5";
-    hal.driver_version = "220703";
+    hal.driver_version = "220710";
     hal.driver_setup = driver_setup;
     hal.f_step_timer = 24000000UL;
     hal.rx_buffer_size = RX_BUFFER_SIZE;
