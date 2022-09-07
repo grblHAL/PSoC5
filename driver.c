@@ -436,7 +436,7 @@ bool driver_init (void)
     EEPROM_Start();
 
     hal.info = "PSoC 5";
-    hal.driver_version = "220710";
+    hal.driver_version = "220907";
     hal.driver_setup = driver_setup;
     hal.f_step_timer = 24000000UL;
     hal.rx_buffer_size = RX_BUFFER_SIZE;
@@ -482,7 +482,7 @@ bool driver_init (void)
     hal.irq_enable = enable_irq;
     hal.irq_disable = disable_irq;
 
-  // driver capabilities, used for announcing and negotiating (with Grbl) driver functionality
+  // driver capabilities, used for announcing and negotiating (with grblHAL) driver functionality
 
 #ifndef NO_SAFETY_DOOR_SUPPORT
     hal.signals_cap.safety_door_ajar = On;
@@ -504,7 +504,7 @@ bool driver_init (void)
 
     // No need to move version check before init.
     // Compiler will fail any signature mismatch for existing entries.
-    return hal.version == 9;
+    return hal.version == 10;
 }
 
 /* interrupt handlers */
