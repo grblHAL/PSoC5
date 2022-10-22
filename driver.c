@@ -436,7 +436,7 @@ bool driver_init (void)
     EEPROM_Start();
 
     hal.info = "PSoC 5";
-    hal.driver_version = "220907";
+    hal.driver_version = "221022";
     hal.driver_setup = driver_setup;
     hal.f_step_timer = 24000000UL;
     hal.rx_buffer_size = RX_BUFFER_SIZE;
@@ -487,6 +487,7 @@ bool driver_init (void)
 #ifndef NO_SAFETY_DOOR_SUPPORT
     hal.signals_cap.safety_door_ajar = On;
 #endif
+    hal.driver_cap.pwm_spindle = On;
     hal.driver_cap.mist_control = On;
     hal.driver_cap.software_debounce = On;
     hal.driver_cap.step_pulse_delay = Off;
@@ -497,10 +498,9 @@ bool driver_init (void)
 
 #if KEYPAD_ENABLE
     I2C_Init();
-    keypad_init();
 #endif
   
-    my_plugin_init();
+#include "grbl/plugins_init.h"
 
     // No need to move version check before init.
     // Compiler will fail any signature mismatch for existing entries.
