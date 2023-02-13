@@ -36,6 +36,7 @@
 #define INTERRUPT_FREQ 1000u
 #define SYSTICK_INTERRUPT_VECTOR_NUMBER 15u
 
+static spindle_id_t spindle_id = -1;
 static bool spindlePWM = false, IOInitDone = false;
 static spindle_pwm_t spindle_pwm = {0};
 static axes_signals_t next_step_outbits;
@@ -106,6 +107,22 @@ static void spindleSetStateVariable (spindle_state_t state, float rpm)
     }
 
     spindle_set_speed(new_pwm);
+}
+
+bool spindleConfig (spindle_ptrs_t *spindle)
+{
+    if(spindle == NULL)
+        return false;
+
+    if((spindlePWM = (spindle->cap.variable = !settings.spindle.flags.pwm_disable && spindle_precompute_pwm_values(spindle, &spindle_pwm, hal.f_step_timer)))) {
+        SpindlePWM_Start();
+        SpindlePWM_WritePeriod(spindle_pwm.period);
+        spindle->set_state = spindleSetStateVariable;
+    } else {
+        spindle->set_state = spindleSetStateFixed;
+    }
+
+    return true;
 }
 
 // end Variable spindle
@@ -328,10 +345,16 @@ static void disable_irq (void)
 
 // Callback to inform settings has been changed, called by settings_store_global_setting()
 // Used to (re)configure hardware and set up helper variables
-void settings_changed (settings_t *settings)
+void settings_changed (settings_t *settings, settings_changed_flags_t changed)
 {
     //TODO: disable interrupts while reconfigure?
     if(IOInitDone) {
+    
+        if(changed.spindle) {
+            spindleConfig(spindle_get_hal(spindle_id, SpindleHAL_Configured));
+            if(spindle_id == spindle_get_default())
+                spindle_select(spindle_id);
+        }
     
         if(hal.driver_cap.step_pulse_delay && settings->steppers.pulse_delay_microseconds > 0.0f) {
       //    TimerIntRegister(TIMER2_BASE, TIMER_A, stepper_pulse_isr_delayed);
@@ -372,10 +395,6 @@ void settings_changed (settings_t *settings)
         Probe_SetDriveMode(settings->probe.disable_probe_pullup ? Probe_DM_RES_DWN : Probe_DM_RES_UP);
         Probe_Write(settings->probe.disable_probe_pullup ? 0 : 1);
 
-        spindle_precompute_pwm_values(&spindle_pwm, hal.f_step_timer);
-
-        if(spindlePWM)
-            SpindlePWM_WritePeriod(spindle_pwm.period);
     }
 }
 
@@ -393,14 +412,6 @@ static bool driver_setup (settings_t *settings)
     
     Homing_Interrupt_SetVector(limit_isr);
     
-    hal.spindle.cap.variable &= !settings->spindle.flags.pwm_disable;
-    
-    if((spindlePWM = hal.spindle.cap.variable)) {
-        SpindlePWM_Start();
-        SpindlePWM_WritePeriod(spindle_pwm.period);
-    } else
-        hal.spindle.set_state = spindleSetStateFixed;
-
 //    CyIntSetSysVector(SYSTICK_INTERRUPT_VECTOR_NUMBER, systick_isr);
 //    SysTick_Config(BCLK__BUS_CLK__HZ / INTERRUPT_FREQ);
 
@@ -411,9 +422,8 @@ static bool driver_setup (settings_t *settings)
 
     IOInitDone = settings->version == 22;
 
-    hal.settings_changed(settings);
-    hal.spindle.set_state((spindle_state_t){0}, 0.0f);
-    hal.coolant.set_state((coolant_state_t){0});
+    hal.settings_changed(settings, (settings_changed_flags_t){0});
+
     DirOutput_Write(0);
 
 #ifdef HAS_KEYPAD
@@ -436,7 +446,7 @@ bool driver_init (void)
     EEPROM_Start();
 
     hal.info = "PSoC 5";
-    hal.driver_version = "230125";
+    hal.driver_version = "230130";
     hal.driver_setup = driver_setup;
     hal.f_step_timer = 24000000UL;
     hal.rx_buffer_size = RX_BUFFER_SIZE;
@@ -458,13 +468,17 @@ bool driver_init (void)
     hal.probe.get_state = probeGetState;
     hal.probe.configure = probeConfigure;
 
-    hal.spindle.cap.direction = On;
-    hal.spindle.cap.variable = On;
-    hal.spindle.cap.laser = On;
-    hal.spindle.set_state = spindleSetStateVariable;
-    hal.spindle.get_state = spindleGetState;
-    hal.spindle.get_pwm = spindleGetPWM;
-    hal.spindle.update_pwm = spindle_set_speed;
+    static const spindle_ptrs_t spindle = {
+        .cap.direction = On,
+        .cap.variable = On,
+        .cap.laser = On,
+        .config = spindleConfig,
+        .set_state = spindleSetStateVariable,
+        .get_state = spindleGetState,
+        .get_pwm = spindleGetPWM,
+        .update_pwm = spindle_set_speed
+    };
+    spindle_id = spindle_register(&spindle, "PWM");
 
     hal.control.get_state = systemGetState;
 
