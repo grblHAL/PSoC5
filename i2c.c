@@ -5,7 +5,7 @@
 
   Part of GrblHAL
 
-  Copyright (c) 2020 Terje Io
+  Copyright (c) 2020-2023 Terje Io
 
   Grbl is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -22,7 +22,7 @@
 */
 
 #include "project.h"
-#include "keypad/keypad.h"
+#include "i2c.h"
 
 static uint8 keycode;
 keycode_callback_ptr on_keyclick;
@@ -49,7 +49,7 @@ void I2C_ISR_ExitCallback(void)
 }
 
 // get single byte - via interrupt
-void I2C_GetKeycode (uint32_t i2cAddr, keycode_callback_ptr callback)
+void i2c_get_keycode (uint_fast16_t i2cAddr, keycode_callback_ptr callback)
 {
     if(I2CPort_MasterStatus() != I2CPort_MSTAT_XFER_INP) { // ignore if busy
         keycode = 0;

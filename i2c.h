@@ -5,7 +5,7 @@
 
   Part of GrblHAL
 
-  Copyright (c) 2020 Terje Io
+  Copyright (c) 2020-2023 Terje Io
 
   Grbl is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -22,9 +22,8 @@
 */
 
 #include "driver.h"
-#include "keypad/keypad.h"
 #include "grbl/plugins.h"
 
 void I2C_Init (void);
-void I2C_GetKeycode (uint32_t i2cAddr, keycode_callback_ptr callback);
+void i2c_get_keycode (uint_fast16_t i2cAddr, keycode_callback_ptr callback);
 void I2C_ISR_ExitCallback(void);
