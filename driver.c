@@ -207,12 +207,13 @@ static void stepperPulseStartDelayed (stepper_t *stepper)
     }
 }
 
-// Disable limit pins interrupt, called from mc_homing_cycle()
+// Enable limit pins interrupt, called from mc_homing_cycle()
 static void limitsEnable (bool on, axes_signals_t homing_cycle)
 {
-    if(on && homing_cycle.mask == 0)
+    if(on) {
+        HomingSignals_WriteMask(~homing_cycle.mask);
         Homing_Interrupt_Enable();
-    else
+    } else
         Homing_Interrupt_Disable();
 }
 
@@ -445,7 +446,7 @@ bool driver_init (void)
     EEPROM_Start();
 
     hal.info = "PSoC 5";
-    hal.driver_version = "230828";
+    hal.driver_version = "230907";
     hal.driver_setup = driver_setup;
     hal.f_step_timer = 24000000UL;
     hal.rx_buffer_size = RX_BUFFER_SIZE;
