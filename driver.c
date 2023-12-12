@@ -88,13 +88,13 @@ static void spindle_set_speed (uint_fast16_t pwm_value)
 
 static uint_fast16_t spindleGetPWM (float rpm)
 {
-    return spindle_compute_pwm_value(&spindle_pwm, rpm, false);
+    return spindle_pwm.compute_value(&spindle_pwm, rpm, false);
 }
 
 // Start or stop spindle, called from spindle_run() and protocol_execute_realtime()
 static void spindleSetStateVariable (spindle_state_t state, float rpm)
 {
-    uint32_t new_pwm = spindle_compute_pwm_value(&spindle_pwm, rpm, false);
+    uint32_t new_pwm = spindle_pwm.compute_value(&spindle_pwm, rpm, false);
 
     if(state.on)
         SpindleOutput_Write(state.ccw ? 0x02 : 0x00);
@@ -446,7 +446,7 @@ bool driver_init (void)
     EEPROM_Start();
 
     hal.info = "PSoC 5";
-    hal.driver_version = "230907";
+    hal.driver_version = "231025";
     hal.driver_setup = driver_setup;
     hal.f_step_timer = 24000000UL;
     hal.rx_buffer_size = RX_BUFFER_SIZE;
