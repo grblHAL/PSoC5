@@ -36,6 +36,8 @@
 #define INTERRUPT_FREQ 1000u
 #define SYSTICK_INTERRUPT_VECTOR_NUMBER 15u
 
+#define pwm(s) ((spindle_pwm_t *)s->context)
+
 static spindle_id_t spindle_id = -1;
 static bool spindlePWM = false, IOInitDone = false;
 static spindle_pwm_t spindle_pwm = {0};
@@ -64,9 +66,10 @@ static void driver_delay_ms (uint32_t ms, void (*callback)(void))
 // Non-variable spindle
 
 // Start or stop spindle, called from spindle_run() and protocol_execute_realtime()
-static void spindleSetStateFixed (spindle_state_t state, float rpm)
+static void spindleSetStateFixed (spindle_ptrs_t *spindle, spindle_state_t state, float rpm)
 {
     rpm = rpm;              // stop compiler complaining
+    spindle = spindle;
    
     SpindleOutput_Write(state.value);
 }
@@ -74,10 +77,10 @@ static void spindleSetStateFixed (spindle_state_t state, float rpm)
 // Variable spindle
 
 // Set spindle speed. Note: spindle direction must be kept if stopped or restarted
-static void spindle_set_speed (uint_fast16_t pwm_value)
+static void spindleSetSpeed (spindle_ptrs_t *spindle, uint_fast16_t pwm_value)
 {
-    if (pwm_value == spindle_pwm.off_value) {
-        if(settings.spindle.flags.enable_rpm_controlled)
+    if(pwm_value == pwm(spindle)->off_value) {
+        if(pwm(spindle)->settings->flags.enable_rpm_controlled)
             SpindleOutput_Write(SpindleOutput_Read() & 0x02);
     } else {
         if(!(SpindleOutput_Read() & 0x01))
@@ -86,27 +89,27 @@ static void spindle_set_speed (uint_fast16_t pwm_value)
     }
 }
 
-static uint_fast16_t spindleGetPWM (float rpm)
+static uint_fast16_t spindleGetPWM (spindle_ptrs_t *spindle, float rpm)
 {
-    return spindle_pwm.compute_value(&spindle_pwm, rpm, false);
+    return pwm(spindle)->compute_value(pwm(spindle), rpm, false);
 }
 
 // Start or stop spindle, called from spindle_run() and protocol_execute_realtime()
-static void spindleSetStateVariable (spindle_state_t state, float rpm)
+static void spindleSetStateVariable (spindle_ptrs_t *spindle, spindle_state_t state, float rpm)
 {
-    uint32_t new_pwm = spindle_pwm.compute_value(&spindle_pwm, rpm, false);
+    uint32_t new_pwm = spindle_pwm.compute_value(pwm(spindle), rpm, false);
 
     if(state.on)
         SpindleOutput_Write(state.ccw ? 0x02 : 0x00);
         
-    if(!settings.spindle.flags.enable_rpm_controlled) {
-        if (state.on)
+    if(!pwm(spindle)->settings->flags.enable_rpm_controlled) {
+        if(state.on)
             SpindleOutput_Write(state.value);
         else
             SpindleOutput_Write(SpindleOutput_Read() & 0x02); // Keep direction!
     }
 
-    spindle_set_speed(new_pwm);
+    spindleSetSpeed(spindle, new_pwm);
 }
 
 bool spindleConfig (spindle_ptrs_t *spindle)
@@ -114,20 +117,19 @@ bool spindleConfig (spindle_ptrs_t *spindle)
     if(spindle == NULL)
         return false;
 
-    if((spindlePWM = (spindle->cap.variable = !settings.spindle.flags.pwm_disable && spindle_precompute_pwm_values(spindle, &spindle_pwm, hal.f_step_timer)))) {
+    if((spindlePWM = spindle_precompute_pwm_values(spindle, &spindle_pwm, &settings.spindle, hal.f_step_timer))) {
         SpindlePWM_Start();
         SpindlePWM_WritePeriod(spindle_pwm.period);
         spindle->set_state = spindleSetStateVariable;
-    } else {
+    } else
         spindle->set_state = spindleSetStateFixed;
-    }
 
     return true;
 }
 
 // end Variable spindle
 
-static spindle_state_t spindleGetState (void)
+static spindle_state_t spindleGetState (spindle_ptrs_t *spindle)
 {   
     return (spindle_state_t)SpindleOutput_Read();
 }
@@ -226,7 +228,7 @@ inline static limit_signals_t limitsGetState()
     
     memset(&signals, 0, sizeof(limit_signals_t));
 
-	signals.min.mask = HomingSignals_Read();
+    signals.min.mask = HomingSignals_Read();
 
     return signals;
 }
@@ -238,7 +240,7 @@ static control_signals_t systemGetState (void)
     signals.value = ControlSignals_Read();
     
 #ifndef NO_SAFETY_DOOR_SUPPORT
-	signals.safety_door_ajar = Off;
+    signals.safety_door_ajar = Off;
 #endif
 
     return signals;
@@ -446,7 +448,7 @@ bool driver_init (void)
     EEPROM_Start();
 
     hal.info = "PSoC 5";
-    hal.driver_version = "231025";
+    hal.driver_version = "231228";
     hal.driver_setup = driver_setup;
     hal.f_step_timer = 24000000UL;
     hal.rx_buffer_size = RX_BUFFER_SIZE;
@@ -472,11 +474,12 @@ bool driver_init (void)
         .cap.direction = On,
         .cap.variable = On,
         .cap.laser = On,
+        .cap.gpio_controlled = On,
         .config = spindleConfig,
         .set_state = spindleSetStateVariable,
         .get_state = spindleGetState,
         .get_pwm = spindleGetPWM,
-        .update_pwm = spindle_set_speed
+        .update_pwm = spindleSetSpeed
     };
     spindle_id = spindle_register(&spindle, "PWM");
 
