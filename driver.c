@@ -7,18 +7,18 @@
 
   Copyright (c) 2017-2023 Terje Io
 
-  Grbl is free software: you can redistribute it and/or modify
+  grblHAL is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
   the Free Software Foundation, either version 3 of the License, or
   (at your option) any later version.
 
-  Grbl is distributed in the hope that it will be useful,
+  grblHAL is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
   GNU General Public License for more details.
 
   You should have received a copy of the GNU General Public License
-  along with Grbl.  If not, see <http://www.gnu.org/licenses/>.
+  along with grblHAL. If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "project.h"
@@ -35,8 +35,6 @@
 #define STEPPER_DRIVER_PRESCALER 3
 #define INTERRUPT_FREQ 1000u
 #define SYSTICK_INTERRUPT_VECTOR_NUMBER 15u
-
-#define pwm(s) ((spindle_pwm_t *)s->context)
 
 static spindle_id_t spindle_id = -1;
 static bool spindlePWM = false, IOInitDone = false;
@@ -79,8 +77,8 @@ static void spindleSetStateFixed (spindle_ptrs_t *spindle, spindle_state_t state
 // Set spindle speed. Note: spindle direction must be kept if stopped or restarted
 static void spindleSetSpeed (spindle_ptrs_t *spindle, uint_fast16_t pwm_value)
 {
-    if(pwm_value == pwm(spindle)->off_value) {
-        if(pwm(spindle)->settings->flags.enable_rpm_controlled)
+    if(pwm_value == spindle->context.pwm->off_value) {
+        if(spindle->context.pwm->settings->flags.enable_rpm_controlled)
             SpindleOutput_Write(SpindleOutput_Read() & 0x02);
     } else {
         if(!(SpindleOutput_Read() & 0x01))
@@ -91,18 +89,18 @@ static void spindleSetSpeed (spindle_ptrs_t *spindle, uint_fast16_t pwm_value)
 
 static uint_fast16_t spindleGetPWM (spindle_ptrs_t *spindle, float rpm)
 {
-    return pwm(spindle)->compute_value(pwm(spindle), rpm, false);
+    return spindle->context.pwm->compute_value(spindle->context.pwm, rpm, false);
 }
 
 // Start or stop spindle, called from spindle_run() and protocol_execute_realtime()
 static void spindleSetStateVariable (spindle_ptrs_t *spindle, spindle_state_t state, float rpm)
 {
-    uint32_t new_pwm = spindle_pwm.compute_value(pwm(spindle), rpm, false);
+    uint32_t new_pwm = spindle_pwm.compute_value(spindle->context.pwm, rpm, false);
 
     if(state.on)
         SpindleOutput_Write(state.ccw ? 0x02 : 0x00);
         
-    if(!pwm(spindle)->settings->flags.enable_rpm_controlled) {
+    if(!spindle->context.pwm->settings->flags.enable_rpm_controlled) {
         if(state.on)
             SpindleOutput_Write(state.value);
         else
@@ -448,7 +446,7 @@ bool driver_init (void)
     EEPROM_Start();
 
     hal.info = "PSoC 5";
-    hal.driver_version = "231228";
+    hal.driver_version = "240213";
     hal.driver_setup = driver_setup;
     hal.f_step_timer = 24000000UL;
     hal.rx_buffer_size = RX_BUFFER_SIZE;
