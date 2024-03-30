@@ -5,7 +5,7 @@
 
   Part of grblHAL
 
-  Copyright (c) 2017-2023 Terje Io
+  Copyright (c) 2017-2024 Terje Io
 
   grblHAL is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -446,7 +446,7 @@ bool driver_init (void)
     EEPROM_Start();
 
     hal.info = "PSoC 5";
-    hal.driver_version = "240213";
+    hal.driver_version = "240330";
     hal.driver_setup = driver_setup;
     hal.f_step_timer = 24000000UL;
     hal.rx_buffer_size = RX_BUFFER_SIZE;
@@ -504,7 +504,8 @@ bool driver_init (void)
 #endif
     hal.limits_cap = (limit_signals_t){ .min.mask = AXES_BITMASK };
     hal.driver_cap.pwm_spindle = On;
-    hal.driver_cap.mist_control = On;
+    hal.coolant_cap.flood = On;
+    hal.coolant_cap.mist = On;
     hal.driver_cap.software_debounce = On;
     hal.driver_cap.step_pulse_delay = Off;
     hal.driver_cap.amass_level = 3;
