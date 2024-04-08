@@ -151,7 +151,7 @@ static void stepperWakeUp ()
     }
 */
     // Enable stepper drivers.
-    StepperEnable_Write(On);
+    hal.stepper.enable((axes_signals_t){AXES_BITMASK});
     StepperTimer_WritePeriod(5000); // dummy
     StepperTimer_Enable();
     Stepper_Interrupt_SetPending();
@@ -446,7 +446,7 @@ bool driver_init (void)
     EEPROM_Start();
 
     hal.info = "PSoC 5";
-    hal.driver_version = "240330";
+    hal.driver_version = "240408";
     hal.driver_setup = driver_setup;
     hal.f_step_timer = 24000000UL;
     hal.rx_buffer_size = RX_BUFFER_SIZE;
