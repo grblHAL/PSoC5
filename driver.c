@@ -26,11 +26,6 @@
 #include "driver.h"
 #include "grbl/state_machine.h"
 
-#if KEYPAD_ENABLE
-#include "keypad/keypad.h"
-#include "i2c.h"
-#endif
-
 // prescale step counter to 20Mhz (80 / (STEPPER_DRIVER_PRESCALER + 1))
 #define STEPPER_DRIVER_PRESCALER 3
 #define INTERRUPT_FREQ 1000u
@@ -446,7 +441,7 @@ bool driver_init (void)
     EEPROM_Start();
 
     hal.info = "PSoC 5";
-    hal.driver_version = "240408";
+    hal.driver_version = "240817";
     hal.driver_setup = driver_setup;
     hal.f_step_timer = 24000000UL;
     hal.rx_buffer_size = RX_BUFFER_SIZE;
@@ -513,10 +508,6 @@ bool driver_init (void)
     hal.driver_cap.limits_pull_up = On;
     hal.driver_cap.probe_pull_up = On;
 
-#if KEYPAD_ENABLE
-    I2C_Init();
-#endif
-  
 #include "grbl/plugins_init.h"
 
     // No need to move version check before init.
