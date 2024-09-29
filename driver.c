@@ -130,7 +130,7 @@ static spindle_state_t spindleGetState (spindle_ptrs_t *spindle)
 // end spindle code
 
 // Enable/disable steppers, called from st_wake_up() and st_go_idle()
-static void stepperEnable (axes_signals_t enable)
+static void stepperEnable (axes_signals_t enable, bool hold)
 {
     StepperEnable_Write(enable.x);
 }
@@ -146,7 +146,7 @@ static void stepperWakeUp ()
     }
 */
     // Enable stepper drivers.
-    hal.stepper.enable((axes_signals_t){AXES_BITMASK});
+    hal.stepper.enable((axes_signals_t){AXES_BITMASK}, false);
     StepperTimer_WritePeriod(5000); // dummy
     StepperTimer_Enable();
     Stepper_Interrupt_SetPending();
@@ -441,7 +441,7 @@ bool driver_init (void)
     EEPROM_Start();
 
     hal.info = "PSoC 5";
-    hal.driver_version = "240817";
+    hal.driver_version = "240928";
     hal.driver_setup = driver_setup;
     hal.f_step_timer = 24000000UL;
     hal.rx_buffer_size = RX_BUFFER_SIZE;
@@ -464,10 +464,14 @@ bool driver_init (void)
     hal.probe.configure = probeConfigure;
 
     static const spindle_ptrs_t spindle = {
-        .cap.direction = On,
-        .cap.variable = On,
-        .cap.laser = On,
-        .cap.gpio_controlled = On,
+		.type = SpindleType_PWM,
+		.ref_id = SPINDLE_PWM0,
+		.cap = {
+			.direction = On,
+			.variable = On,
+			.laser = On,
+			.gpio_controlled = On
+		},
         .config = spindleConfig,
         .set_state = spindleSetStateVariable,
         .get_state = spindleGetState,
