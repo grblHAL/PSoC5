@@ -24,6 +24,7 @@
 #include "project.h"
 #include "serial.h"
 #include "driver.h"
+#include "grbl/crc.h"
 #include "grbl/state_machine.h"
 
 // prescale step counter to 20Mhz (80 / (STEPPER_DRIVER_PRESCALER + 1))
@@ -110,7 +111,7 @@ bool spindleConfig (spindle_ptrs_t *spindle)
     if(spindle == NULL)
         return false;
 
-    if((spindlePWM = spindle_precompute_pwm_values(spindle, &spindle_pwm, &settings.spindle, hal.f_step_timer))) {
+    if((spindlePWM = spindle_precompute_pwm_values(spindle, &spindle_pwm, &settings.pwm_spindle, hal.f_step_timer))) {
         SpindlePWM_Start();
         SpindlePWM_WritePeriod(spindle_pwm.period);
         spindle->set_state = spindleSetStateVariable;
@@ -279,13 +280,17 @@ void eepromPutByte (uint32_t addr, uint8_t new_value)
 
 nvs_transfer_result_t eepromWriteBlock (uint32_t destination, uint8_t *source, uint32_t size, bool with_checksum)
 {
-    uint8_t checksum = calc_checksum(source, size);
+    uint16_t checksum = calc_checksum(source, size);
 
     for(; size > 0; size--)
         EEPROM_WriteByte(*(source++), destination++); 
     
-    if(size > 0 && with_checksum)
-        EEPROM_WriteByte(checksum, destination);
+    if(size > 0 && with_checksum) {
+        EEPROM_WriteByte(checksum & 0xFF, destination);
+#if NVS_CRC_BYTES > 1
+        EEPROM_WriteByte(checksum >> 8, ++destination);
+#endif
+    }
 
     return NVS_TransferResult_OK;
 }
@@ -295,9 +300,13 @@ nvs_transfer_result_t eepromReadBlock (uint8_t *destination, uint32_t source, ui
     uint32_t remaining = size;
 
     for(; remaining > 0; remaining--)
-        *(destination++) = EEPROM_ReadByte(source++); 
+        *(destination++) = EEPROM_ReadByte(source++);
 
+#if NVS_CRC_BYTES == 1
     return with_checksum ? (calc_checksum(destination, size) == EEPROM_ReadByte(source) ? NVS_TransferResult_OK : NVS_TransferResult_Failed) : NVS_TransferResult_OK;
+#else
+    return with_checksum ? (calc_checksum(destination, size) == (EEPROM_ReadByte(source) | (EEPROM_ReadByte(source + 1) << 1) ? NVS_TransferResult_OK : NVS_TransferResult_Failed) : NVS_TransferResult_OK;
+#endif
 }
 
 // Helper functions for setting/clearing/inverting individual bits atomically (uninterruptable)
@@ -362,8 +371,8 @@ void settings_changed (settings_t *settings, settings_changed_flags_t changed)
         DirInvert_Write(settings->steppers.dir_invert.mask);
         StepInvert_Write(settings->steppers.step_invert.mask);
         StepperEnableInvert_Write(settings->steppers.enable_invert.x);
-        SpindleInvert_Write(settings->spindle.invert.mask);
-        CoolantInvert_Write(settings->coolant_invert.mask);
+        SpindleInvert_Write(settings->pwm_spindle.invert.mask);
+        CoolantInvert_Write(settings->coolant.invert.mask);
 
         // Homing (limit) inputs
         XHome_Write(settings->limits.disable_pullup.x ? 0 : 1);
@@ -415,7 +424,7 @@ static bool driver_setup (settings_t *settings)
     DelayTimer_Interrupt_Enable();
     DelayTimer_Start();
 
-    IOInitDone = settings->version.id == 22;
+    IOInitDone = settings->version.id == 23;
 
     hal.settings_changed(settings, (settings_changed_flags_t){0});
 
@@ -441,7 +450,7 @@ bool driver_init (void)
     EEPROM_Start();
 
     hal.info = "PSoC 5";
-    hal.driver_version = "240928";
+    hal.driver_version = "241208";
     hal.driver_setup = driver_setup;
     hal.f_step_timer = 24000000UL;
     hal.rx_buffer_size = RX_BUFFER_SIZE;
