@@ -292,7 +292,7 @@ nvs_transfer_result_t eepromWriteBlock (uint32_t destination, uint8_t *source, u
 #endif
     }
 
-    return NVS_TransferResult_OK;
+    return true;
 }
 
 nvs_transfer_result_t eepromReadBlock (uint8_t *destination, uint32_t source, uint32_t size, bool with_checksum)
@@ -303,9 +303,9 @@ nvs_transfer_result_t eepromReadBlock (uint8_t *destination, uint32_t source, ui
         *(destination++) = EEPROM_ReadByte(source++);
 
 #if NVS_CRC_BYTES == 1
-    return with_checksum ? (calc_checksum(destination, size) == EEPROM_ReadByte(source) ? NVS_TransferResult_OK : NVS_TransferResult_Failed) : NVS_TransferResult_OK;
+    return !with_checksum || calc_checksum(destination, size) == EEPROM_ReadByte(source);
 #else
-    return with_checksum ? (calc_checksum(destination, size) == (EEPROM_ReadByte(source) | (EEPROM_ReadByte(source + 1) << 1) ? NVS_TransferResult_OK : NVS_TransferResult_Failed) : NVS_TransferResult_OK;
+    return !with_checksum || calc_checksum(destination, size) == (EEPROM_ReadByte(source) | (EEPROM_ReadByte(source + 1) << 1));
 #endif
 }
 
@@ -450,7 +450,7 @@ bool driver_init (void)
     EEPROM_Start();
 
     hal.info = "PSoC 5";
-    hal.driver_version = "241208";
+    hal.driver_version = "250228";
     hal.driver_setup = driver_setup;
     hal.f_step_timer = 24000000UL;
     hal.rx_buffer_size = RX_BUFFER_SIZE;
