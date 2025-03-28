@@ -35,7 +35,7 @@
 static spindle_id_t spindle_id = -1;
 static bool spindlePWM = false, IOInitDone = false;
 static spindle_pwm_t spindle_pwm = {0};
-static axes_signals_t next_step_outbits;
+static axes_signals_t next_step_out;
 static delay_t delay = { .ms = 1, .callback = NULL }; // NOTE: initial ms set to 1 for "resetting" systick timer on startup
 
 // Interrupt handler prototypes
@@ -178,26 +178,26 @@ static void stepperGoIdle (bool clear_signals)
 // Sets stepper direction and pulse pins and starts a step pulse
 static void stepperPulseStart (stepper_t *stepper)
 {
-    if(stepper->new_block) {
-        stepper->new_block = false;
-        DirOutput_Write(stepper->dir_outbits.value);
+    if(stepper->dir_changed.bits) {
+        stepper->dir_changed.bits = 0;
+        DirOutput_Write(stepper->dir_out.bits);
     }
 
-    if(stepper->step_outbits.value)
-        StepOutput_Write(stepper->step_outbits.value);
+    if(stepper->step_out.bits)
+        StepOutput_Write(stepper->step_out.bits);
 }
 
 // Delayed pulse version: sets stepper direction and pulse pins and starts a step pulse with an initial delay.
 // TODO: unsupported, to be completed
 static void stepperPulseStartDelayed (stepper_t *stepper)
 {
-    if(stepper->new_block) {
-        stepper->new_block = false;
-        DirOutput_Write(stepper->dir_outbits.value);
+    if(stepper->dir_changed.bits) {
+        stepper->dir_changed.bits = 0;
+        DirOutput_Write(stepper->dir_out.bits);
     }
     
-    if(stepper->step_outbits.value) {
-        next_step_outbits = stepper->step_outbits; // Store out_bits
+    if(stepper->step_out.bits) {
+        next_step_out = stepper->step_out; // Store out_bits
        
 //TODO: implement timer for initial delay...
     }
@@ -450,7 +450,7 @@ bool driver_init (void)
     EEPROM_Start();
 
     hal.info = "PSoC 5";
-    hal.driver_version = "250228";
+    hal.driver_version = "250327";
     hal.driver_setup = driver_setup;
     hal.f_step_timer = 24000000UL;
     hal.rx_buffer_size = RX_BUFFER_SIZE;
@@ -546,7 +546,7 @@ static void stepper_pulse_isr (void)
 {
     //Stepper_Timer_ReadStatusRegister();
 
-    StepOutput_Write(next_step_outbits.value);
+    StepOutput_Write(next_step_out.value);
 }
 */
 static void limit_isr (void)
