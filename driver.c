@@ -171,8 +171,11 @@ static void stepperCyclesPerTick (uint32_t cycles_per_tick)
 static void stepperGoIdle (bool clear_signals)
 {
     StepperTimer_Stop();
-    if(clear_signals)
+ 
+    if(clear_signals) {
         StepOutput_Write(0);
+        DirOutput_Write(0);
+    }
 }
 
 // Sets stepper direction and pulse pins and starts a step pulse
@@ -353,7 +356,9 @@ void settings_changed (settings_t *settings, settings_changed_flags_t changed)
 {
     //TODO: disable interrupts while reconfigure?
     if(IOInitDone) {
-    
+
+        hal.stepper.go_idle(true);
+  
         if(changed.spindle) {
             spindleConfig(spindle_get_hal(spindle_id, SpindleHAL_Configured));
             if(spindle_id == spindle_get_default())
@@ -427,8 +432,6 @@ static bool driver_setup (settings_t *settings)
     IOInitDone = settings->version.id == 23;
 
     hal.settings_changed(settings, (settings_changed_flags_t){0});
-
-    DirOutput_Write(0);
 
 #ifdef HAS_KEYPAD
 
