@@ -1,6 +1,9 @@
 ## PSoC5 Driver
 
-A GrblHAL driver for Cypress PSoC 5 \(CY8CKIT-059\
+> [!NOTE]
+> 2025-05-29: End of support notice. This driver will no longer be updated, the latest core build it can be used with is 20250518.
+
+A grblHAL driver for Cypress PSoC 5 \(CY8CKIT-059\
 
 ** EXPERIMENTAL **
 
@@ -31,3 +34,6 @@ Rigth click the new project and select *Add Existing Item...* , navigate to the 
 Some parts of the code has been moved to UDBs resulting in simpler code and less overhead:
 
 ![UDB Logic](Media/DriverLogic.png)
+
+---
+2025-05-29
